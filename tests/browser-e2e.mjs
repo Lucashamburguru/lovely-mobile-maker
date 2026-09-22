@@ -83,6 +83,10 @@ await evaluate(`(() => {
 })()`);
 
 await waitFor("!document.querySelector('#step4').classList.contains('collapsed')", "base APK preparation");
+await waitFor(`(() => {
+    const images = [...document.querySelectorAll('.meta-icon-list img')];
+    return images.length === 3 && images.every(image => image.complete && image.naturalWidth > 0);
+})()`, "preset icon images");
 await evaluate("document.querySelector('#meta-ready').click(); true");
 await waitFor("!document.querySelector('#step5').classList.contains('collapsed')", "metadata submission");
 

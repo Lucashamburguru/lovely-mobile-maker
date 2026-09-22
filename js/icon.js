@@ -19,13 +19,13 @@ const androidIcons = [
     {
 	type: "external",
 	name: "Balatro",
-	src: "/img/Balatro.png",
+	src: "img/Balatro.png",
 	round: true,
     },
     {
 	type: "external",
 	name: "LÖVE",
-	src: "/img/love.png",
+	src: "img/love.png",
     },
     uploadIcon,
 ];
@@ -35,12 +35,12 @@ const iOSIcons = [
     {
 	type: "external",
 	name: "Balatro",
-	src: "/img/Balatro.png",
+	src: "img/Balatro.png",
     },
     {
 	type: "external",
 	name: "LÖVE",
-	src: "/img/love-ios.png",
+	src: "img/love-ios.png",
     },
     uploadIcon,
 ];
