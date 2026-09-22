@@ -6,6 +6,9 @@
         <title>Lovely Mobile Maker</title>
         <meta name='viewport' content='width=device-width, initial-scale=1'>
         <link rel='stylesheet' type='text/css' media='screen' href='css/main.css'>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
         <script src='js/main.js' type="module"></script>
     </head>
 
@@ -70,21 +73,97 @@
             <p><button id="meta-ready">Ready</button></p>
         </div>
         <div id="step5" class="step collapsed">
-            <h3>Step 5 - Patching App</h3>
-            <p>This step is where the app is made from your game files. It may take a few minutes to complete. When it is done the app will download.</p>
+            <h3>Step 5 - Mods (Optional)</h3>
+            <p>Select which mods you would like to bundle into the app. They will be automatically extracted and loaded when the app starts.</p>
+            <div class="mods-container">
+                <div class="mods-grid">
+                    <div class="mod-card">
+                        <label class="mod-label">
+                            <input type="checkbox" id="mod-steamodded" checked>
+                            <span class="mod-name">Steamodded</span>
+                            <span class="mod-version">v1.0.0~BETA-1814a</span>
+                        </label>
+                        <p class="mod-desc">Core mod loader API for Balatro, required for almost all mods.</p>
+                    </div>
+                    <div class="mod-card">
+                        <label class="mod-label">
+                            <input type="checkbox" id="mod-mobilepatches">
+                            <span class="mod-name">MobilePatches</span>
+                            <span class="mod-version">v1.0.0</span>
+                        </label>
+                        <p class="mod-desc">Legacy mobile fixes; not needed with the bundled Steamodded version.</p>
+                    </div>
+                    <div class="mod-card">
+                        <label class="mod-label">
+                            <input type="checkbox" id="mod-handy">
+                            <span class="mod-name">Handy</span>
+                            <span class="mod-version">v1.5.1p</span>
+                        </label>
+                        <p class="mod-desc">Quality-of-life enhancements, drag card selection, custom keybinds.</p>
+                    </div>
+                    <div class="mod-card">
+                        <label class="mod-label">
+                            <input type="checkbox" id="mod-runreviewer">
+                            <span class="mod-name">Run Reviewer</span>
+                            <span class="mod-version">bundled snapshot</span>
+                        </label>
+                        <p class="mod-desc">Review your runs, deck status, and stats after a run has ended.</p>
+                    </div>
+                    <div class="mod-card">
+                        <label class="mod-label">
+                            <input type="checkbox" id="mod-brainstorm">
+                            <span class="mod-name">Brainstorm</span>
+                            <span class="mod-version">v2.2.0-alpha</span>
+                        </label>
+                        <p class="mod-desc">Create save states/rewind, seed filtering, and QoL tools.</p>
+                    </div>
+                    <div class="mod-card">
+                        <label class="mod-label">
+                            <input type="checkbox" id="mod-jokerdisplay">
+                            <span class="mod-name">JokerDisplay</span>
+                            <span class="mod-version">v1.10.6</span>
+                        </label>
+                        <p class="mod-desc">Real-time information boxes under Jokers showing score modifiers.</p>
+                    </div>
+                    <div class="mod-card">
+                        <label class="mod-label">
+                            <input type="checkbox" id="mod-amulet">
+                            <span class="mod-name">Amulet</span>
+                            <span class="mod-version">v3.5.3</span>
+                        </label>
+                        <p class="mod-desc">The modern successor to Talisman. Increases the score cap for endless high-scoring runs.</p>
+                    </div>
+                </div>
+
+                <div class="custom-mods-section">
+                    <h4>Custom Mods (.zip)</h4>
+                    <p class="custom-mods-help">Upload additional mod zip files. They will be placed directly in the Mods folder.</p>
+                    <div class="custom-upload-btn-wrapper">
+                        <button class="btn-custom-upload">Choose Zip Files</button>
+                        <input type="file" id="custom-mods" accept=".zip" multiple>
+                    </div>
+                    <ul id="custom-mods-list" class="custom-mods-list"></ul>
+                </div>
+            </div>
+            <p style="margin-top: 1.5em;"><button id="mods-ready">Continue</button></p>
         </div>
         <div id="step6" class="step collapsed">
-            <h3>Step 6 - Done!</h3>
+            <h3>Step 6 - Patching App</h3>
+            <p>This step is where the app is made from your game files. It may take a few minutes to complete. When it is done the app will download.</p>
+        </div>
+        <div id="step7" class="step collapsed">
+            <h3>Step 7 - Done!</h3>
             <p>The app has been patched and now you are able to install it. If for some reason it did not download, or you want to download it again, you may click the button below.</p>
             <p><button id="done-download">Download</button></p>
+            <p><strong>Note for Mods:</strong> The first time you launch the game after installing, the bundled mods will be extracted in the background. Please close the game and open it a second time for the mods to activate!</p>
             <h4>What now?</h4>
-            <p>Checkout the <a target="_blank" rel="noopener noreferrer" href="/faq">FAQ's</a> for information such as how to install the app, and how to install mods.</p>
+            <p>Checkout the <a target="_blank" rel="noopener noreferrer" href="faq.html">FAQ's</a> for information such as how to install the app, and how to install mods.</p>
         </div>
 
         <footer>
             <p>Made with ♥ by <a target="_blank" href="https://github.com/WilsontheWolf">WilsontheWolf</a> • <a target="_blank" href="https://github.com/WilsontheWolf/Lovely-mobile-maker">Source Code</a></p>
             <p>Special thanks to <a target="_blank" href="https://github.com/ethangreen-dev">ethangreen-dev</a> and <a target="_blank" href="https://github.com/Lauriethefish/ModsBeforeFriday">ModsBeforeFriday</a> for without them, this project wouldn't be possible.</p>
-            <p>For help, see the <a target="_blank" href="/faq">Frequently Asked Questions</a>
+            <p>For help, see the <a target="_blank" href="faq.html">Frequently Asked Questions</a>
         </footer>
     </body>
 

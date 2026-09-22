@@ -24,6 +24,13 @@ pub fn zip_extract_file_to(zip: &mut ZipFile, name: &str, to: &str) -> Result<()
 }
 
 #[wasm_bindgen]
+pub fn zip_save(mut zip: ZipFile) -> Result<Vec<u8>, String> {
+    res_fix(zip.save())?;
+    zip.flush();
+    Ok(zip.into_buffer())
+}
+
+#[wasm_bindgen]
 pub fn zip_save_and_sign_v2(mut zip: ZipFile, pem_data: &[u8]) -> Result<Vec<u8>, String> {
     let (cert, priv_key) = signing::load_cert_and_priv_key(pem_data);
     res_fix(zip.save_and_sign_v2(&priv_key, &cert))?;
@@ -44,7 +51,7 @@ pub fn entry_names(zip: &mut ZipFile) -> Vec<String> {
 }
 
 #[wasm_bindgen]
-pub fn write_file(zip: &mut ZipFile, name: &str, contents: &[u8]) -> Result<(), String>{
+pub fn write_file(zip: &mut ZipFile, name: &str, contents: &[u8]) -> Result<(), String> {
     res_fix(zip.write_file(name, &mut Cursor::new(contents), FileCompression::Deflate))
 }
 

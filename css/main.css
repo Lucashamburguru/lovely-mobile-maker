@@ -3,6 +3,7 @@
 }
 
 body {
+    font-family: 'Outfit', sans-serif;
     max-width: 50em;
     margin: 0 auto;
     background-image: url("../img/cat.png");
@@ -251,10 +252,181 @@ footer {
     --step-colour: lightseagreen;
 }
 #step5 {
-    --step-colour: deeppink;
+    --step-colour: #ff7b00; /* Orange for Mods */
 }
 #step6 {
+    --step-colour: deeppink;
+}
+#step7 {
     --step-colour: lawngreen;
+}
+
+/* Mod Card Grid & Styling */
+.mods-container {
+    margin-top: 1em;
+}
+
+.mods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18em, 1fr));
+    gap: 1em;
+    margin-bottom: 2em;
+}
+
+.mod-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.8em;
+    padding: 1em;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.mod-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.mod-label {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    font-size: 1.1em;
+    margin-bottom: 0.4em;
+    cursor: pointer;
+}
+
+.mod-label input[type="checkbox"] {
+    margin-right: 0.6em;
+    width: 1.2em;
+    height: 1.2em;
+    cursor: pointer;
+}
+
+.mod-name {
+    color: white;
+}
+
+.mod-version {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 400;
+    margin-left: auto;
+}
+
+.mod-desc {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+    flex-grow: 1;
+    line-height: 1.4;
+}
+
+.custom-mods-section {
+    margin-top: 2em;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 1.5em;
+}
+
+.custom-mods-section h4 {
+    margin-top: 0;
+    margin-bottom: 0.5em;
+    font-size: 1.2em;
+    color: white;
+}
+
+.custom-mods-help {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 1em;
+}
+
+.custom-upload-btn-wrapper {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+}
+
+.btn-custom-upload {
+    border: 1px dashed rgba(255, 255, 255, 0.4);
+    background: transparent;
+    color: white;
+    padding: 0.8em 1.5em;
+    border-radius: 0.5em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-custom-upload:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: white;
+}
+
+.custom-upload-btn-wrapper input[type="file"] {
+    font-size: 100px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.custom-mods-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 1em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    max-width: 30em;
+}
+
+.custom-mods-list li {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.6em 1em;
+    border-radius: 0.5em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.95em;
+}
+
+.custom-mods-list li .remove-btn {
+    background: transparent;
+    border: none;
+    color: #ff6b6b;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 0.5em;
+    font-size: 1.1em;
+    transition: color 0.2s;
+}
+
+.custom-mods-list li .remove-btn:hover {
+    color: #ff3b3b;
+}
+
+button {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    border-radius: 0.5em;
+    padding: 0.6em 1.2em;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+select, input[type="text"] {
+    font-family: 'Outfit', sans-serif;
+    border-radius: 0.5em;
+    padding: 0.5em;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
 }
 
 /* FAQ Header Links */
@@ -276,4 +448,22 @@ a.header:hover {
 
 .faq img {
     margin-top: 1em;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
 }

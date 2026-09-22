@@ -4,9 +4,11 @@ use crc::{Algorithm, Crc};
 use goblin::Object;
 use libflate::deflate;
 use rasn_pkix::Certificate;
-use rsa::{rand_core, RsaPrivateKey};
+use rsa::RsaPrivateKey;
 use std::{
-    collections::HashMap, fs::File, io::{BufReader, BufWriter, Cursor, Read, Seek, SeekFrom, Write}, path::Path, rc::Rc, vec
+    collections::HashMap,
+    io::{BufReader, BufWriter, Cursor, Read, Seek, SeekFrom, Write},
+    path::Path,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -46,6 +48,53 @@ pub fn crc_of_stream(mut stream: impl Read) -> Result<u32> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_zip() -> ZipFile {
+        ZipFile {
+            file: Cursor::new(Vec::new()),
+            entries: HashMap::new(),
+            end_of_entries_offset: 0,
+            store_aligment: 1,
+        }
+    }
+
+    #[test]
+    fn unsigned_save_round_trips_written_files() {
+        let mut zip = empty_zip();
+        zip.write_file(
+            "mods/example/main.lua",
+            &mut Cursor::new(b"return 'first'"),
+            FileCompression::Deflate,
+        )
+        .unwrap();
+        zip.write_file(
+            "mods/example/main.lua",
+            &mut Cursor::new(b"return 'updated'"),
+            FileCompression::Deflate,
+        )
+        .unwrap();
+        zip.write_file(
+            "mods/manifest.txt",
+            &mut Cursor::new(b"example"),
+            FileCompression::Deflate,
+        )
+        .unwrap();
+
+        zip.save().unwrap();
+        let mut reopened = ZipFile::open(Cursor::new(zip.into_buffer())).unwrap();
+
+        assert_eq!(
+            reopened.read_file("mods/example/main.lua").unwrap(),
+            b"return 'updated'"
+        );
+        assert_eq!(reopened.read_file("mods/manifest.txt").unwrap(), b"example");
+        assert_eq!(reopened.iter_entry_names().count(), 2);
+    }
+}
+
 /// Calculates the CRC-32 hash of a slice. (using the same CRC algorithm as in ZIP files)
 pub fn crc_bytes(bytes: &[u8]) -> u32 {
     let mut digest = ZIP_CRC.digest();
@@ -70,7 +119,9 @@ pub fn pe_length(buf: &[u8]) -> u32 {
 
     // Determine the size of the PE executable by taking the sum of the headers and sections.
     let optional = pe.header.optional_header.unwrap().standard_fields;
-    let initial_offset = optional.size_of_code + optional.size_of_initialized_data + optional.size_of_uninitialized_data;
+    let initial_offset = optional.size_of_code
+        + optional.size_of_initialized_data
+        + optional.size_of_uninitialized_data;
 
     let mut cursor = Cursor::new(buf);
     cursor.seek_relative(initial_offset as _).unwrap();
@@ -84,7 +135,6 @@ pub fn pe_length(buf: &[u8]) -> u32 {
         .unwrap_or(0);
     (pos as u32).into()
 }
-
 
 #[wasm_bindgen]
 pub struct ZipFile {
@@ -522,6 +572,42 @@ impl ZipFile {
 
     pub fn into_buffer(self) -> Vec<u8> {
         self.file.into_inner()
+    }
+
+    pub fn save(&mut self) -> Result<()> {
+        let mut cd_bytes = Vec::new();
+        let mut cd_cursor = Cursor::new(&mut cd_bytes);
+
+        for cd_header in self.entries.values() {
+            cd_header.write(&mut cd_cursor)?;
+        }
+
+        let eocd = EndOfCentDir {
+            cent_dir_records: self
+                .entries
+                .len()
+                .try_into()
+                .context("Too many ZIP entries")?,
+            cent_dir_size: cd_bytes
+                .len()
+                .try_into()
+                .context("Central directory too big")?,
+            cent_dir_offset: self.end_of_entries_offset,
+            comment: Vec::new(),
+        };
+
+        // Remove existing CD and EOCD
+        self.file
+            .get_mut()
+            .truncate(self.end_of_entries_offset as usize);
+
+        self.file
+            .seek(SeekFrom::Start(self.end_of_entries_offset as u64))?;
+
+        self.file.write_all(&cd_bytes)?;
+        eocd.write(&mut self.file)?;
+
+        Ok(())
     }
 
     /// Saves the ZIP central directory, while signing the APK with the V2 signature scheme.

@@ -11,10 +11,7 @@ use rsa::{
     sha2::{Digest, Sha256},
     Pkcs1v15Sign, RsaPrivateKey,
 };
-use std::{
-    fs::File,
-    io::{BufRead, BufReader, Cursor, Read, Seek, SeekFrom, Write},
-};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use super::data::EndOfCentDir;
 
