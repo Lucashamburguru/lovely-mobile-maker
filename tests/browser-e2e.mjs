@@ -87,8 +87,7 @@ await evaluate("document.querySelector('#meta-ready').click(); true");
 await waitFor("!document.querySelector('#step5').classList.contains('collapsed')", "metadata submission");
 
 await evaluate(`(() => {
-    for (const checkbox of document.querySelectorAll('#step5 input[type=checkbox]')) checkbox.checked = false;
-    document.querySelector('#mod-steamodded').checked = true;
+    for (const checkbox of document.querySelectorAll('#step5 input[type=checkbox]')) checkbox.checked = true;
     document.querySelector('#mods-ready').click();
     return true;
 })()`);

@@ -72,9 +72,12 @@ apk="$test_root/downloads/game.apk"
 test -s "$apk"
 unzip -tq "$apk" >/dev/null
 unzip -Z1 "$apk" | grep -Fx 'assets/lmm_bundled_mods/manifest.txt' >/dev/null
-unzip -Z1 "$apk" | grep -F 'assets/lmm_bundled_mods/Steamodded/' >/dev/null
-test "$(unzip -p "$apk" assets/lmm_bundled_mods/manifest.txt)" = 'Steamodded'
+for mod in Steamodded MobilePatches Handy RunReviewer Brainstorm JokerDisplay Amulet; do
+    unzip -Z1 "$apk" | grep -F "assets/lmm_bundled_mods/$mod/" >/dev/null
+done
+expected_manifest=$'Steamodded\nMobilePatches\nHandy\nRunReviewer\nBrainstorm\nJokerDisplay\nAmulet'
+test "$(unzip -p "$apk" assets/lmm_bundled_mods/manifest.txt)" = "$expected_manifest"
 unzip -p "$apk" assets/main.lua | grep -F 'LMM_copy_bundled_mods' >/dev/null
 unzip -p "$apk" assets/main.lua | luac -p -
 
-echo "Browser E2E passed: generated APK contains the injected installer and Steamodded bundle."
+echo "Browser E2E passed: generated APK contains the injected installer and every bundled mod."
