@@ -9,3 +9,4 @@ target
 mbf-zip/pkg
 mbf-axml/pkg
 bindgen/pkg
+/docs/reviews/

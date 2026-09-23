@@ -19,6 +19,7 @@ function safeModName(name) {
 }
 
 function normalizeZipEntryPath(path) {
+    if (/[\x00-\x1f\x7f]/.test(path)) return null;
     const parts = path.replaceAll("\\", "/").split("/").filter(part => part && part !== ".");
     if (parts.length === 0 || parts.some(part => part === "..")) return null;
     return parts.join("/");
@@ -29,6 +30,16 @@ const balatroPreset = {
     identity: "balatro",
     name: "Balatro",
 };
+
+const bundledMods = [
+    { id: "steamodded", name: "Steamodded", filename: "Steamodded.zip" },
+    { id: "mobilepatches", name: "MobilePatches", filename: "MobilePatches.zip" },
+    { id: "handy", name: "Handy", filename: "Handy.zip", requiresSteamodded: true },
+    { id: "runreviewer", name: "RunReviewer", filename: "RunReviewer.zip", requiresSteamodded: true },
+    { id: "brainstorm", name: "Brainstorm", filename: "Brainstorm.zip", archiveRoot: "Brainstorm-Rerolled-main/Brainstorm/" },
+    { id: "jokerdisplay", name: "JokerDisplay", filename: "JokerDisplay.zip", requiresSteamodded: true },
+    { id: "amulet", name: "Amulet", filename: "Amulet.zip", requiresSteamodded: true },
+];
 
 class Step {
     constructor(element, index) {
@@ -357,55 +368,108 @@ class ModStep extends Step {
 	super(e, i);
 	this.btnReady = document.getElementById("mods-ready");
 	this.btnReady.addEventListener("click", () => this.handleContinue());
+	this.selectionStatus = document.getElementById("mods-selection-status");
+	this.checkboxes = Object.fromEntries(bundledMods.map(mod => [mod.id, document.getElementById(`mod-${mod.id}`)]));
+	for (const checkbox of Object.values(this.checkboxes)) {
+	    checkbox.addEventListener("change", event => this.handleSelectionChange(event));
+	}
 
 	this.customInput = document.getElementById("custom-mods");
 	this.customList = document.getElementById("custom-mods-list");
 	this.customInput.addEventListener("change", (event) => this.handleCustomMods(event));
 
 	this.customMods = [];
+	this.pendingCustomReads = 0;
+	this.readGeneration = 0;
+	this.isDownloading = false;
+	this.customReadError = "";
     }
 
     clear() {
 	super.clear();
+	this.readGeneration++;
+	this.pendingCustomReads = 0;
+	this.isDownloading = false;
+	this.customReadError = "";
 	this.customMods = [];
 	this.customList.innerHTML = "";
+	this.customInput.value = "";
+	this.selectionStatus.textContent = "";
+	this.updateContinueState();
 	sharedState.mods = [];
     }
 
     ready() {
 	super.ready();
 	this.clear();
-	document.getElementById("mod-steamodded").checked = true;
-	document.getElementById("mod-mobilepatches").checked = false;
-	document.getElementById("mod-handy").checked = false;
-	document.getElementById("mod-runreviewer").checked = false;
-	document.getElementById("mod-brainstorm").checked = false;
-	document.getElementById("mod-jokerdisplay").checked = false;
-	document.getElementById("mod-amulet").checked = false;
+	for (const mod of bundledMods) this.checkboxes[mod.id].checked = mod.id === "steamodded";
+    }
+
+    updateContinueState() {
+	this.btnReady.disabled = this.pendingCustomReads > 0 || this.isDownloading;
+	if (this.pendingCustomReads > 0) {
+	    this.selectionStatus.textContent = `Reading ${this.pendingCustomReads} custom ZIP${this.pendingCustomReads === 1 ? "" : "s"}...`;
+	} else if (this.selectionStatus.textContent.startsWith("Reading ") || this.customReadError) {
+	    this.selectionStatus.textContent = this.customReadError;
+	}
+    }
+
+    handleSelectionChange(event) {
+	const steamodded = this.checkboxes.steamodded;
+	const mobilepatches = this.checkboxes.mobilepatches;
+	const dependentMods = bundledMods.filter(mod => mod.requiresSteamodded);
+	let message = "";
+	if (event.target === steamodded && !steamodded.checked) {
+	    const removed = dependentMods.filter(mod => this.checkboxes[mod.id].checked);
+	    for (const mod of removed) this.checkboxes[mod.id].checked = false;
+	    if (removed.length) message = `Deselected ${removed.map(mod => mod.name).join(", ")}: they require Steamodded.`;
+	} else if (event.target === mobilepatches && mobilepatches.checked && steamodded.checked) {
+	    mobilepatches.checked = false;
+	    message = "MobilePatches conflicts with this Steamodded version. Deselect Steamodded first.";
+	} else if (dependentMods.some(mod => event.target === this.checkboxes[mod.id] && event.target.checked)) {
+	    if (!steamodded.checked) {
+		steamodded.checked = true;
+		message = "Selected Steamodded because this mod requires it.";
+	    }
+	    if (mobilepatches.checked) {
+		mobilepatches.checked = false;
+		message += `${message ? " " : ""}Deselected conflicting MobilePatches.`;
+	    }
+	}
+	this.selectionStatus.textContent = message;
     }
 
     handleCustomMods(event) {
-	const files = event.target.files;
-	for (let i = 0; i < files.length; i++) {
-	    const file = files[i];
-	    if (!file.name.endsWith(".zip")) continue;
-	    const reader = new FileReader();
-	    reader.onload = () => {
+	const files = Array.from(event.target.files);
+	const generation = this.readGeneration;
+	this.customReadError = "";
+	for (const file of files) {
+	    if (!/\.zip$/i.test(file.name)) {
+		this.customReadError = `Skipped ${file.name}: expected a ZIP file.`;
+		continue;
+	    }
+	    this.pendingCustomReads++;
+	    this.updateContinueState();
+	    file.arrayBuffer().then(buffer => {
+		if (generation !== this.readGeneration) return;
+		const data = new Uint8Array(buffer);
+		const testZip = zip_open(data);
+		testZip.free();
 		const name = file.name.substring(0, file.name.lastIndexOf("."));
-		const data = new Uint8Array(reader.result);
-		try {
-		    const testZip = zip_open(data);
-		    testZip.free(); // Validated successfully! Free the WASM memory immediately.
-		    this.customMods.push({ name, data });
-		    this.renderCustomModsList();
-		} catch(e) {
-		    console.error("Invalid mod zip", e);
-		    alert(`Failed to load "${file.name}": Not a valid zip archive!`);
-		}
-	    };
-	    reader.readAsArrayBuffer(file);
+		this.customMods.push({ name, data });
+		this.renderCustomModsList();
+	    }).catch(error => {
+		if (generation !== this.readGeneration) return;
+		console.error("Failed to load custom mod ZIP", error);
+		this.customReadError = `Failed to load ${file.name}: invalid or unreadable ZIP.`;
+	    }).finally(() => {
+		if (generation !== this.readGeneration) return;
+		this.pendingCustomReads--;
+		this.updateContinueState();
+	    });
 	}
 	event.target.value = "";
+	this.updateContinueState();
     }
 
     renderCustomModsList() {
@@ -428,22 +492,25 @@ class ModStep extends Step {
     }
 
     async handleContinue() {
+	if (this.pendingCustomReads > 0 || this.isDownloading) return;
+	const steamodded = this.checkboxes.steamodded.checked;
+	const missingDependency = bundledMods.find(mod => mod.requiresSteamodded && this.checkboxes[mod.id].checked && !steamodded);
+	if (missingDependency) {
+	    this.selectionStatus.textContent = `${missingDependency.name} requires Steamodded.`;
+	    return;
+	}
+	if (steamodded && this.checkboxes.mobilepatches.checked) {
+	    this.selectionStatus.textContent = "MobilePatches conflicts with this Steamodded version.";
+	    return;
+	}
 	this.updateStatus("Downloading selected mods...");
-	this.btnReady.disabled = true;
+	this.isDownloading = true;
+	this.updateContinueState();
 
 	const selectedMods = [];
-	const toDownload = [
-	    { id: "steamodded", name: "Steamodded", filename: "Steamodded.zip" },
-	    { id: "mobilepatches", name: "MobilePatches", filename: "MobilePatches.zip" },
-	    { id: "handy", name: "Handy", filename: "Handy.zip" },
-	    { id: "runreviewer", name: "RunReviewer", filename: "RunReviewer.zip" },
-	    { id: "brainstorm", name: "Brainstorm", filename: "Brainstorm.zip", archiveRoot: "Brainstorm-Rerolled-main/Brainstorm/" },
-	    { id: "jokerdisplay", name: "JokerDisplay", filename: "JokerDisplay.zip" },
-	    { id: "amulet", name: "Amulet", filename: "Amulet.zip" }
-	];
 
-	for (const mod of toDownload) {
-	    const checkbox = document.getElementById(`mod-${mod.id}`);
+	for (const mod of bundledMods) {
+	    const checkbox = this.checkboxes[mod.id];
 	    if (checkbox && checkbox.checked) {
 		this.updateStatus(`Downloading ${mod.name}...`);
 		try {
@@ -454,7 +521,8 @@ class ModStep extends Step {
 		} catch (e) {
 		    console.error(`Error downloading mod ${mod.name}`, e);
 		    this.updateStatus(`Failed to download ${mod.name}: ${e.message}`);
-		    this.btnReady.disabled = false;
+		    this.isDownloading = false;
+		    this.updateContinueState();
 		    return;
 		}
 	    }
@@ -464,7 +532,8 @@ class ModStep extends Step {
 
 	sharedState.mods = selectedMods;
 	this.updateStatus("Done!");
-	this.btnReady.disabled = false;
+	this.isDownloading = false;
+	this.updateContinueState();
 	this.done();
     }
 }
@@ -586,6 +655,11 @@ local function LMM_copy_bundled_mods()
     end
 
     local bundled_version = love.filesystem.read(version_file)
+    if not bundled_version then
+        table.insert(log, "Failed to read bundled version.")
+        write_log()
+        return
+    end
     table.insert(log, "Bundled version: " .. tostring(bundled_version))
 
     local copied_version_file = mods_dest_dir .. "/.copied_version"
@@ -601,74 +675,95 @@ local function LMM_copy_bundled_mods()
         end
     end
 
-    table.insert(log, "Copying files...")
+    local function fail(message)
+        table.insert(log, message)
+        write_log()
+    end
 
-    local function parse_manifest(contents)
-        local names = {}
-        for name in string.gmatch(contents or "", "[^\\r\\n]+") do
-            if name ~= "." and name ~= ".." and string.match(name, "^[%w%._ %-]+$") then
-                table.insert(names, name)
+    local function valid_path(path)
+        if path:find("\\\\", 1, true) or path:find("%c") or path:sub(1, 1) == "/" or path:find("//", 1, true) then return false end
+        local segments = 0
+        for part in path:gmatch("[^/]+") do
+            if part == "." or part == ".." then return false end
+            segments = segments + 1
+        end
+        return segments >= 2 and path:sub(-1) ~= "/"
+    end
+
+    local function parse_files(contents)
+        local files, set = {}, {}
+        for path in (contents or ""):gmatch("[^\\r\\n]+") do
+            if not valid_path(path) then return nil end
+            if not set[path] then
+                table.insert(files, path)
+                set[path] = true
             end
         end
-        return names
+        return files, set
     end
 
-    local function remove_recursive(path)
-        local info = love.filesystem.getInfo(path)
-        if not info then return end
-        if info.type == "directory" then
-            for _, item in ipairs(love.filesystem.getDirectoryItems(path)) do
-                remove_recursive(path .. "/" .. item)
+    local bundled_files = love.filesystem.read("lmm_bundled_mods/files.txt")
+    if not bundled_files then
+        fail("Missing bundled file list.")
+        return
+    end
+    local files, desired = parse_files(bundled_files)
+    if not files then
+        fail("Invalid bundled file list.")
+        return
+    end
+    local copied_files_path = mods_dest_dir .. "/.lmm_bundled_files"
+    local previous_files = love.filesystem.read(copied_files_path)
+    local old_files = parse_files(previous_files)
+    if not old_files then
+        fail("Invalid previous bundled file list.")
+        return
+    end
+    -- Older builds tracked whole mod names only. Leave their files alone rather
+    -- than risking deletion of mod-generated settings on the first upgrade.
+    if not love.filesystem.createDirectory(mods_dest_dir) then
+        fail("Failed to create Mods directory.")
+        return
+    end
+
+    for _, path in ipairs(files) do
+        local source = "lmm_bundled_mods/" .. path
+        local target = mods_dest_dir .. "/" .. path
+        local parent = target:match("^(.*)/[^/]+$")
+        if not love.filesystem.createDirectory(parent) then
+            fail("Failed to create directory: " .. parent)
+            return
+        end
+        local data = love.filesystem.read(source)
+        if not data then
+            fail("Failed to read file: " .. source)
+            return
+        end
+        if not love.filesystem.write(target, data) then
+            fail("Failed to write file: " .. target)
+            return
+        end
+    end
+
+    for _, path in ipairs(old_files) do
+        if not desired[path] and love.filesystem.getInfo(mods_dest_dir .. "/" .. path) then
+            if not love.filesystem.remove(mods_dest_dir .. "/" .. path) then
+                fail("Failed to remove obsolete bundled file: " .. path)
+                return
             end
         end
-        if not love.filesystem.remove(path) then
-            table.insert(log, "Failed to remove old bundled path: " .. path)
-        end
     end
 
-    local copied_manifest_file = mods_dest_dir .. "/.lmm_bundled_mods"
-    local previous_manifest = love.filesystem.read(copied_manifest_file)
-    if not previous_manifest and copied_version then
-        -- Older LMM builds tracked only a version, so clean their known built-ins once.
-        previous_manifest = "Steamodded\\nMobilePatches\\nHandy\\nRunReviewer\\nBrainstorm\\nJokerDisplay\\nAmulet"
+    local bundled_manifest = love.filesystem.read("lmm_bundled_mods/manifest.txt")
+    if not bundled_manifest or not love.filesystem.write(copied_files_path, bundled_files)
+        or not love.filesystem.write(mods_dest_dir .. "/.lmm_bundled_mods", bundled_manifest) then
+        fail("Failed to write bundled file metadata.")
+        return
     end
-    for _, name in ipairs(parse_manifest(previous_manifest)) do
-        remove_recursive(mods_dest_dir .. "/" .. name)
+    if not love.filesystem.write(copied_version_file, bundled_version) then
+        fail("Failed to write completion marker.")
+        return
     end
-
-    local function copy_recursive(src, dest)
-        local ok = love.filesystem.createDirectory(dest)
-        if not ok then
-            table.insert(log, "Failed to create directory: " .. dest)
-        end
-        local items = love.filesystem.getDirectoryItems(src)
-        table.insert(log, "Listing " .. src .. ": found " .. #items .. " items.")
-        for _, item in ipairs(items) do
-            local src_path = src .. "/" .. item
-            local dest_path = dest .. "/" .. item
-            local info = love.filesystem.getInfo(src_path)
-            if info then
-                if info.type == "directory" then
-                    copy_recursive(src_path, dest_path)
-                elseif info.type == "file" then
-                    local data, size = love.filesystem.read(src_path)
-                    if data then
-                        local write_ok = love.filesystem.write(dest_path, data)
-                        if not write_ok then
-                            table.insert(log, "Failed to write file: " .. dest_path)
-                        end
-                    else
-                        table.insert(log, "Failed to read file: " .. src_path)
-                    end
-                end
-            end
-        end
-    end
-
-    copy_recursive("lmm_bundled_mods", mods_dest_dir)
-    local bundled_manifest = love.filesystem.read("lmm_bundled_mods/manifest.txt") or ""
-    love.filesystem.write(copied_manifest_file, bundled_manifest)
-    love.filesystem.write(copied_version_file, bundled_version)
     table.insert(log, "Copy complete.")
     write_log()
 end
@@ -686,6 +781,7 @@ end
 	const modsVersion = Date.now().toString();
 	write_file(game.zip, "lmm_bundled_mods/version.txt", encoder.encode(modsVersion));
 	const managedModNames = [];
+	const managedFiles = [];
 
 	for (const mod of mods) {
 	    const modName = safeModName(mod.name);
@@ -745,11 +841,13 @@ end
 
 		const destPath = `lmm_bundled_mods/${modName}/${relativePath}`;
 		write_file(game.zip, destPath, fileData);
+		managedFiles.push(`${modName}/${relativePath}`);
 	    }
 	    managedModNames.push(modName);
 	    modZip.free(); // Free WASM memory for this mod zip!
 	}
 	write_file(game.zip, "lmm_bundled_mods/manifest.txt", encoder.encode(managedModNames.join("\n")));
+	write_file(game.zip, "lmm_bundled_mods/files.txt", encoder.encode(managedFiles.join("\n")));
 
 	this.updateStatus2("Mods integration complete!");
 	await asyncTimeout();

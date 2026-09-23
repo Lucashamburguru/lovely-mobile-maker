@@ -1,5 +1,8 @@
+import { stat } from "node:fs/promises";
+
 const cdpPort = process.env.CDP_PORT || "9223";
 const gameFile = process.env.LMM_TEST_GAME;
+const customModFile = process.env.LMM_TEST_CUSTOM_MOD;
 
 if (!gameFile) throw new Error("LMM_TEST_GAME is required");
 
@@ -16,8 +19,6 @@ await new Promise((resolve, reject) => {
 let nextId = 1;
 const pending = new Map();
 const browserErrors = [];
-let downloadCompleted;
-const downloadPromise = new Promise(resolve => { downloadCompleted = resolve; });
 
 socket.addEventListener("message", event => {
     const message = JSON.parse(event.data);
@@ -30,9 +31,6 @@ socket.addEventListener("message", event => {
     }
     if (message.method === "Runtime.exceptionThrown") {
         browserErrors.push(message.params.exceptionDetails.text);
-    }
-    if (message.method === "Browser.downloadProgress" && message.params.state === "completed") {
-        downloadCompleted(message.params);
     }
 });
 
@@ -91,17 +89,48 @@ await evaluate("document.querySelector('#meta-ready').click(); true");
 await waitFor("!document.querySelector('#step5').classList.contains('collapsed')", "metadata submission");
 
 await evaluate(`(() => {
-    for (const checkbox of document.querySelectorAll('#step5 input[type=checkbox]')) checkbox.checked = true;
-    document.querySelector('#mods-ready').click();
+    const steam = document.querySelector('#mod-steamodded');
+    const amulet = document.querySelector('#mod-amulet');
+    const mobile = document.querySelector('#mod-mobilepatches');
+    steam.checked = false;
+    amulet.checked = true;
+    amulet.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!steam.checked) throw new Error('Amulet did not select Steamodded');
+    mobile.checked = true;
+    mobile.dispatchEvent(new Event('change', { bubbles: true }));
+    if (mobile.checked) throw new Error('MobilePatches conflict not enforced');
+    for (const checkbox of document.querySelectorAll('#step5 input[type=checkbox]')) {
+        if (checkbox !== mobile) checkbox.checked = true;
+    }
+    const original = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function () {
+        return new Promise((resolve, reject) => setTimeout(() => original.call(this).then(resolve, reject), 400));
+    };
     return true;
 })()`);
 
+const customInput = await send("DOM.querySelector", {
+    nodeId: documentNode.root.nodeId,
+    selector: "#custom-mods",
+});
+await send("DOM.setFileInputFiles", { nodeId: customInput.nodeId, files: [customModFile] });
+if (!await evaluate("document.querySelector('#mods-ready').disabled")) {
+    throw new Error("Continue was not disabled while the custom ZIP was loading");
+}
+await waitFor("!document.querySelector('#mods-ready').disabled && document.querySelector('#custom-mods-list').textContent.includes('custom-test.zip')", "custom mod read");
+await evaluate("document.querySelector('#mods-ready').click(); true");
+
 await waitFor("!document.querySelector('#step6').classList.contains('collapsed')", "mod selection");
-await Promise.race([
-    downloadPromise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out waiting for APK download")), 180_000)),
-]);
 await waitFor("!document.querySelector('#step7').classList.contains('collapsed')", "completed build");
+const apkPath = `${process.env.LMM_TEST_DOWNLOADS}/game.apk`;
+const deadline = Date.now() + 180_000;
+while (Date.now() < deadline) {
+    try {
+        if ((await stat(apkPath)).size > 0) break;
+    } catch { /* Download has not started yet. */ }
+    await new Promise(resolve => setTimeout(resolve, 100));
+}
+if (!(await stat(apkPath)).size) throw new Error("APK download did not complete");
 
 socket.close();
 if (browserErrors.length) throw new Error(`Browser exceptions: ${browserErrors.join('; ')}`);

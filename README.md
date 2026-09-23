@@ -26,7 +26,7 @@ If your goal is just to make changes to the website, you can just download the b
 
 ## Bundled mods
 
-The web app can bundle Steamodded and optional mods into the generated APK or IPA. It also accepts custom mod ZIPs. Bundled mods are installed into the game's save directory on launch, and a managed manifest removes stale files when the selected bundle changes without deleting unrelated user-installed mods.
+The web app can bundle Steamodded and optional mods into the generated APK or IPA. It also accepts custom mod ZIPs. Bundled mods are installed into the game's save directory on launch. The installer tracks individual bundled files, preserves mod-created settings, removes obsolete tracked files, and retries incomplete copies on the next launch. When upgrading from an older APK that did not track individual files, it leaves legacy files in place to avoid deleting user settings; obsolete files from that first upgrade may need manual cleanup.
 
 The archives served by the site live in `mods/`. Keep the version labels in `index.html` in sync when replacing them. MobilePatches intentionally defaults off because it conflicts with current Steamodded releases.
 
@@ -39,7 +39,7 @@ cargo test --workspace
 scripts/test-browser-e2e.sh
 ```
 
-The browser test uploads a synthetic LÖVE game, builds an Android APK in headless Chromium, and verifies the injected mod installer and bundled Steamodded files.
+The browser test uploads a synthetic LÖVE game, builds an Android APK in headless Chromium, checks dependency/conflict selection and custom ZIP loading, then runs the injected Lua installer against a mocked LÖVE filesystem to verify settings preservation and copy retries.
 
 ## Exporting to webadmin
 
